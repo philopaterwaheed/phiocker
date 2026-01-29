@@ -1,4 +1,4 @@
-package commands 
+package commands
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 )
+
 func Download(basePath string) {
 	fmt.Println("Downloading base image...")
 	if len(os.Args) < 3 {
@@ -14,20 +15,13 @@ func Download(basePath string) {
 	}
 
 	name := os.Args[2]
-	var url string
-	switch name {
-	case "alpine":
-		url = download.Alpine_url
-	case "ubuntu":
-		url = download.Ubuntu_url
-	case "arch":
-		url= download.Arch_url
-	default:
-		panic("unknown image name")
+		if url, ok := download.SupportedImages_links[name]; ok {
+		fmt.Printf("Downloading %s from %s\n", name, url)
+		if err := download.DownloadAndExtract(url, filepath.Join(basePath, "images", name, "rootfs")); err != nil {
+			errors.Must(err)
 	}
-	fmt.Printf("Downloading %s from %s\n", name, url)
-	if err := download.DownloadAndExtract(url, filepath.Join(basePath, "images", name, "rootfs")); err != nil {
-		errors.Must(err)
+	} else {
+		panic("unsupported image name")
 	}
 
 }

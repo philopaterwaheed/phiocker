@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/philopaterwaheed/phiocker/internal/commands"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"github.com/philopaterwaheed/phiocker/internal/commands"
 )
 
 const (
@@ -18,6 +18,7 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
+		//Todo: show help message
 		panic("usage: run <command>")
 	}
 
@@ -28,6 +29,13 @@ func main() {
 		child()
 	case "download":
 		commands.Download(basePath)
+	case "create":
+		if len(os.Args) < 4 {
+			panic("usage: create <baseimage> <name>")
+		}
+		baseimage := os.Args[2]
+		name := os.Args[3]
+		commands.Create(baseimage, name, basePath)
 	default:
 		panic("unknown command")
 	}
@@ -89,7 +97,6 @@ func child() {
 	syscall.Unmount("/proc", 0)
 }
 
-
 func createCgroup(pid int) string {
 	cgPath := filepath.Join(cgroupRoot, cgroupName)
 	fmt.Print(cgPath)
@@ -132,4 +139,3 @@ func writeFile(path, value string) {
 		panic(err)
 	}
 }
-
