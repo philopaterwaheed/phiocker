@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/philopaterwaheed/phiocker/internal/consts"
-	"github.com/philopaterwaheed/phiocker/internal/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"github.com/philopaterwaheed/phiocker/internal/commands"
 )
 
 const (
@@ -28,7 +27,7 @@ func main() {
 	case "child":
 		child()
 	case "download":
-		download()
+		commands.Download(basePath)
 	default:
 		panic("unknown command")
 	}
@@ -89,30 +88,7 @@ func child() {
 
 	syscall.Unmount("/proc", 0)
 }
-func download() {
-	fmt.Println("Downloading base image...")
-	if len(os.Args) < 3 {
-		panic("usage: download <url>")
-	}
 
-	name := os.Args[2]
-	var url string
-	switch name {
-	case "alpine":
-		url = consts.Alpine_url
-	case "ubuntu":
-		url = consts.Ubuntu_url
-	case "arch":
-		url= consts.Arch_url
-	default:
-		panic("unknown image name")
-	}
-	fmt.Printf("Downloading %s from %s\n", name, url)
-	if err := utils.DownloadAndExtract(url, filepath.Join(basePath, "images", name, "rootfs")); err != nil {
-		must(err)
-	}
-
-}
 
 func createCgroup(pid int) string {
 	cgPath := filepath.Join(cgroupRoot, cgroupName)
@@ -157,6 +133,3 @@ func writeFile(path, value string) {
 	}
 }
 
-func must(err error) {
-panic(err)
-}
