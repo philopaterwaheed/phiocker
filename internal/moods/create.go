@@ -1,4 +1,4 @@
-package commands
+package moods
 
 import (
 	"encoding/json"
