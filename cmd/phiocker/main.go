@@ -30,12 +30,11 @@ func main() {
 	case "download":
 		commands.Download(basePath)
 	case "create":
-		if len(os.Args) < 4 {
-			panic("usage: create <baseimage> <name>")
+		if len(os.Args) < 3 {
+			panic("usage: create <generator_file>")
 		}
-		baseimage := os.Args[2]
-		name := os.Args[3]
-		commands.Create(baseimage, name, basePath)
+	    generatorFilePath := os.Args[2]
+		commands.Create(generatorFilePath, basePath)
 	default:
 		panic("unknown command")
 	}
