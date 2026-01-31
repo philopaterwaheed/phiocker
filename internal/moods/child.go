@@ -1,15 +1,21 @@
 package moods
+
 import (
-	"os"
-	"syscall"
-	"os/exec"
 	"fmt"
+	"os"
+	"os/exec"
+	"syscall"
+	"path/filepath"
 )
 
-func Child() {
+func Child(name, basePath string) {
 	fmt.Printf("Container started with PID %d\n", os.Getpid())
+	path := filepath.Join(basePath, "containers", name, "rootfs")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		panic(name + " container does not exist")
+	}
 
-	if err := syscall.Chroot("/tmp/"); err != nil {
+	if err := syscall.Chroot(path); err != nil {
 		fmt.Printf("err at Chroot: %v\n", err)
 		panic(err)
 	}
@@ -22,7 +28,7 @@ func Child() {
 		panic(err)
 	}
 
-	cmd := exec.Command(os.Args[2], os.Args[3:]...)
+	cmd := exec.Command("/bin/sh")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

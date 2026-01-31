@@ -9,9 +9,7 @@ func RunCmd(name string, args ...string) {
     cmd := exec.Command(name, args...)
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
-    if err := cmd.Run(); err != nil {
-        errors.Must(err)
-    }
+    errors.Must(cmd.Run())
 }
 
 

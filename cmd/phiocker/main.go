@@ -15,9 +15,13 @@ func main() {
 
 	switch os.Args[1] {
 	case "run":
+		if len(os.Args) < 3 {
+			panic("usage: run <container_name>")
+		}
 		moods.Run()
 	case "child":
-		moods.Child()
+		//Check are do at run
+		moods.Child(os.Args[2], basePath)
 	case "download":
 		moods.Download(basePath)
 	case "create":
