@@ -58,6 +58,24 @@ func PullAndExtractImage(imageRef string, outputDir string) error {
 					return err
 				}
 				f.Close()
+			case tar.TypeSymlink:
+				if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+					return err
+				}
+				// Remove existing file/symlink if present (layers can overwrite)
+				os.Remove(target)
+				if err := os.Symlink(hdr.Linkname, target); err != nil {
+					return err
+				}
+			case tar.TypeLink:
+				if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+					return err
+				}
+				linkTarget := filepath.Join(outputDir, hdr.Linkname)
+				os.Remove(target)
+				if err := os.Link(linkTarget, target); err != nil {
+					return err
+				}
 			}
 		}
 	}
