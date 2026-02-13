@@ -3,9 +3,9 @@ package moods
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/philopaterwaheed/phiocker/internal/download"
 	"github.com/philopaterwaheed/phiocker/internal/errors"
 	"github.com/philopaterwaheed/phiocker/internal/cmd"
+	"github.com/philopaterwaheed/phiocker/internal/download"
 	"os"
 	"path/filepath"
 )
@@ -52,26 +52,17 @@ func Create(generatorFilePath, basePath string) {
 
 	fmt.Printf("Creating container %s from image %s...\n", name, baseimage)
 
-	imagePath := filepath.Join(basePath, "images", baseimage, "rootfs")
 	containerPath := filepath.Join(basePath, "containers", name, "rootfs")
-	if baseimage == "arch" {
-		imagePath = filepath.Join(imagePath, "root.x86_64")
-	}
-
-	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
-		download.DownloadAndExtract(baseimage, imagePath)
-	}
-
 	if _, err := os.Stat(containerPath); err == nil {
 		panic(fmt.Sprintf("Container '%s' already exists.", name))
 	}
-
 	if err := os.MkdirAll(containerPath, 0755); err != nil {
 		errors.Must(err)
 	}
-
-	// Copy base image rootfs to container rootfs
-	cmd.RunCmd("cp", "-a", imagePath+"/.", containerPath)
+	fmt.Printf("Pulling and extracting Docker image %s...\n", baseimage)
+	if err := download.PullAndExtractImage(baseimage, containerPath); err != nil {
+		panic(fmt.Sprintf("Failed to pull/extract image: %v", err))
+	}
 	cmd.RunCmd("cp", absloteGeneratorFilePath, filepath.Join(basePath, "containers", name, "config.json"))
 	fmt.Printf("Container %s created successfully!\n", name)
 }
