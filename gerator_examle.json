@@ -1,4 +1,5 @@
 {
-    "name": "e",
-    "baseImage": "alpine:latest"
+    "name": "es",
+    "baseImage": "alpine:latest",
+    "cmd": ["ls", "-la"]
 }

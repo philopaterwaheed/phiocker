@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 	"path/filepath"
+	"syscall"
+	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
 func Child(name, basePath string) {
@@ -14,7 +15,17 @@ func Child(name, basePath string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		panic(name + " container does not exist")
 	}
-
+	
+	configPath := filepath.Join(basePath, "containers", name, "config.json")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		panic(name + " container config does not exist")
+	}
+	file, err := utils.OpenFile(configPath)
+	if err != nil {
+		panic(err)
+	}
+	config := LoadConfig(file)
+	command := config.Cmd
 	if err := syscall.Chroot(path); err != nil {
 		fmt.Printf("err at Chroot: %v\n", err)
 		panic(err)
@@ -28,7 +39,7 @@ func Child(name, basePath string) {
 		panic(err)
 	}
 
-	cmd := exec.Command("/bin/sh")
+	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
