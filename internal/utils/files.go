@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"io"
 )
 
 type FileWrapper struct {
@@ -45,4 +46,30 @@ func OpenFile(path string) (*FileWrapper, error) {
 		Path: absolutePath,
 		File: file,
 	}, nil
+}
+
+func CopyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	sourceInfo, err := sourceFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, sourceInfo.Mode())
 }

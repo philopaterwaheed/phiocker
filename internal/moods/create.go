@@ -27,13 +27,34 @@ func Create(generatorFilePath, basePath string) {
 	if _, err := os.Stat(containerPath); err == nil {
 		panic(fmt.Sprintf("Container '%s' already exists.", name))
 	}
-	if err := os.MkdirAll(containerPath, 0755); err != nil {
-		errors.Must(err)
+
+	// Check if base image exists, if not download it
+	imagePath := filepath.Join(basePath, "images", baseimage, "rootfs")
+	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+		fmt.Printf("Base image '%s' not found, downloading...\n", baseimage)
+		errors.Must(os.MkdirAll(filepath.Dir(imagePath), 0755))
+		errors.Must(download.PullAndExtractImage(baseimage, imagePath))
+		fmt.Printf("Base image '%s' downloaded successfully.\n", baseimage)
+	} else if err != nil {
+		panic(fmt.Sprintf("Error checking base image: %v", err))
+	} else {
+		if isEmpty, err := utils.IsDirectoryEmpty(imagePath); err == nil && isEmpty {
+			fmt.Printf("Base image '%s' directory is empty, re-downloading...\n", baseimage)
+			if err := download.PullAndExtractImage(baseimage, imagePath); err != nil {
+				panic(fmt.Sprintf("Failed to download base image: %v", err))
+			}
+			fmt.Printf("Base image '%s' downloaded successfully.\n", baseimage)
+		} else {
+			fmt.Printf("Using existing base image '%s'.\n", baseimage)
+		}
 	}
-	fmt.Printf("Pulling and extracting Docker image %s...\n", baseimage)
-	if err := download.PullAndExtractImage(baseimage, containerPath); err != nil {
-		panic(fmt.Sprintf("Failed to pull/extract image: %v", err))
+
+	errors.Must(os.MkdirAll(containerPath, 0755))
+
+	if err := utils.CopyDirectory(imagePath, containerPath); err != nil {
+		panic(fmt.Sprintf("Failed to copy image to container: %v", err))
 	}
+
 	cmd.RunCmd("cp", file.Path, filepath.Join(basePath, "containers", name, "config.json"))
 	fmt.Printf("Container %s created successfully!\n", name)
 }
