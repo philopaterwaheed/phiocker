@@ -60,6 +60,10 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+
 	destFile, err := os.Create(dst)
 	if err != nil {
 		return err

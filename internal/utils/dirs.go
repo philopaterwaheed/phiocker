@@ -28,8 +28,16 @@ func CopyDirectory(src, dst string) error {
 
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
+		} else if info.Mode()&os.ModeSymlink != 0 {
+			// Handle symlinks
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			os.Remove(dstPath)
+			return os.Symlink(linkTarget, dstPath)
+		} else {
+			return CopyFile(path, dstPath)
 		}
-
-		return CopyFile(path, dstPath)
 	})
 }
