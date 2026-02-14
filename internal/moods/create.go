@@ -1,52 +1,23 @@
 package moods
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/philopaterwaheed/phiocker/internal/errors"
-	"github.com/philopaterwaheed/phiocker/internal/cmd"
-	"github.com/philopaterwaheed/phiocker/internal/download"
 	"os"
 	"path/filepath"
+
+	"github.com/philopaterwaheed/phiocker/internal/cmd"
+	"github.com/philopaterwaheed/phiocker/internal/download"
+	"github.com/philopaterwaheed/phiocker/internal/errors"
+	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
-type ContainerConfig struct {
-	Name      string  `json:"name"`
-	Baseimage string  `json:"baseImage"`
-}
-
-func resolvePath(p string) (string, error) {
-	if !filepath.IsAbs(p) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", err
-		}
-		p = filepath.Join(cwd, p)
-	}
-
-	p = filepath.Clean(p)
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return "", fmt.Errorf("path does not exist: %s", p)
-	}
-	if filepath.Ext(p) != ".json" {
-		panic("generator file must be a .json file")
-	}
-
-	return p, nil
-}
-
 func Create(generatorFilePath, basePath string) {
-	absloteGeneratorFilePath, err := resolvePath(generatorFilePath)
-	file, err := os.Open(absloteGeneratorFilePath)
+	file, err := utils.OpenFile(generatorFilePath)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
-	var config ContainerConfig
-	err = json.NewDecoder(file).Decode(&config)
-	if err != nil {
-		panic(err)
-	}
+	config := LoadConfig(file)
 	name := config.Name
 	baseimage := config.Baseimage
 
@@ -63,6 +34,6 @@ func Create(generatorFilePath, basePath string) {
 	if err := download.PullAndExtractImage(baseimage, containerPath); err != nil {
 		panic(fmt.Sprintf("Failed to pull/extract image: %v", err))
 	}
-	cmd.RunCmd("cp", absloteGeneratorFilePath, filepath.Join(basePath, "containers", name, "config.json"))
+	cmd.RunCmd("cp", file.Path, filepath.Join(basePath, "containers", name, "config.json"))
 	fmt.Printf("Container %s created successfully!\n", name)
 }
