@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/philopaterwaheed/phiocker/internal/client"
+	"github.com/philopaterwaheed/phiocker/internal/daemon"
 	"github.com/philopaterwaheed/phiocker/internal/moods"
 )
 
@@ -17,7 +19,9 @@ func showHelp() {
 	fmt.Println("  phiocker <command> [options]")
 	fmt.Println()
 	fmt.Println("Commands:")
+	fmt.Println("  daemon                      Start the daemon")
 	fmt.Println("  run <container_name>        Run a container")
+
 	fmt.Println("  create <generator_file>     Create a new container from generator file")
 	fmt.Println("  download                    Download base images")
 	fmt.Println("  search <repository> [limit] Search for downloadable images in a repository (optional limit)")
@@ -50,17 +54,58 @@ func main() {
 		return
 	}
 
+	if os.Args[1] == "daemon" {
+		d := daemon.New()
+		if err := d.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Check if daemon socket exists to decide mode
+	useDaemon := false
+	if _, err := os.Stat(daemon.SocketPath); err == nil {
+		useDaemon = true
+	}
+
+	if os.Args[1] == "child" {
+		moods.Child(os.Args[2], basePath)
+		return
+	}
+
+	if useDaemon {
+		// Client mode
+		switch os.Args[1] {
+		case "help", "-h", "--help":
+			showHelp()
+		case "run":
+			if len(os.Args) < 3 {
+				panic("usage: run <container_name>")
+			}
+			client.SendCommand("run", os.Args[2:])
+		case "create":
+			if len(os.Args) < 3 {
+				panic("usage: create <generator_file>")
+			}
+			client.SendCommand("create", os.Args[2:])
+		case "delete":
+			client.SendCommand("delete", os.Args[2:])
+		default:
+			// Fallback or error?
+			if os.Args[1] == "download" || os.Args[1] == "search" {
+				goto LocalMode
+			}
+			panic("unknown command or not supported via daemon yet")
+		}
+		return
+	}
+
+// For command that don't need to run on the back
+LocalMode:
 	switch os.Args[1] {
 	case "help", "-h", "--help":
 		showHelp()
-	case "run":
-		if len(os.Args) < 3 {
-			panic("usage: run <container_name>")
-		}
-		moods.Run()
-	case "child":
-		//Check are do at run
-		moods.Child(os.Args[2], basePath)
 	case "download":
 		moods.Download(basePath)
 	case "search":
@@ -74,12 +119,7 @@ func main() {
 			}
 		}
 		moods.Search(os.Args[2], limit)
-	case "create":
-		if len(os.Args) < 3 {
-			panic("usage: create <generator_file>")
-		}
-		generatorFilePath := os.Args[2]
-		moods.Create(generatorFilePath, basePath)
+	// TODO: make the daemon run it but without effecting it if running
 	case "delete":
 		if len(os.Args) < 3 {
 			panic("usage: delete <container_name> | delete all | delete list | delete image <image_name> | delete image all | delete image list")

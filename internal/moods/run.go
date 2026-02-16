@@ -2,6 +2,7 @@ package moods
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,15 +15,15 @@ const (
 	cgroupName = "phiocker"
 )
 
-func Run() {
+func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) {
 	cmd := exec.Command(
 		"/proc/self/exe",
-		append([]string{"child"}, os.Args[2:]...)...,
+		append([]string{"child"}, args...)...,
 	)
 
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
