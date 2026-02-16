@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/philopaterwaheed/phiocker/internal/errors"
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
@@ -16,12 +15,13 @@ func DeleteContainer(containerName, basePath string) {
 		fmt.Printf("Container '%s' does not exist.\n", containerName)
 		return
 	} else if err != nil {
-		errors.Must(err)
+		
+		panic(err)
 	}
 
 	info, err := os.Stat(containerPath)
 	if err != nil {
-		errors.Must(err)
+		panic(err)
 	}
 	if !info.IsDir() {
 		fmt.Printf("'%s' is not a valid container directory.\n", containerName)
@@ -42,7 +42,7 @@ func DeleteContainer(containerName, basePath string) {
 
 	fmt.Printf("Deleting container '%s'...\n", containerName)
 	if err := os.RemoveAll(containerPath); err != nil {
-		errors.Must(fmt.Errorf("failed to delete container '%s': %v", containerName, err))
+		panic(fmt.Errorf("failed to delete container '%s': %v", containerName, err))
 	}
 
 	fmt.Printf("Container '%s' has been successfully deleted.\n", containerName)
@@ -55,12 +55,12 @@ func DeleteAllContainers(basePath string) {
 		fmt.Println("No containers directory found.")
 		return
 	} else if err != nil {
-		errors.Must(err)
+		panic(err)
 	}
 
 	entries, err := os.ReadDir(containersPath)
 	if err != nil {
-		errors.Must(err)
+		panic(err)
 	}
 
 	if len(entries) == 0 {
@@ -118,4 +118,111 @@ func DeleteAllContainers(basePath string) {
 	fmt.Printf("Successfully deleted %d out of %d containers.\n", successCount, len(containerNames))
 }
 
+func DeleteImage(imageName, basePath string) {
+	imagePath := filepath.Join(basePath, "images", imageName)
 
+	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+		fmt.Printf("Image '%s' does not exist.\n", imageName)
+		return
+	} else if err != nil {
+		panic(err)
+	}
+
+	info, err := os.Stat(imagePath)
+	if err != nil {
+		panic(err)
+	}
+	if !info.IsDir() {
+		fmt.Printf("'%s' is not a valid image directory.\n", imageName)
+		return
+	}
+
+	fmt.Printf("Image '%s' found at: %s\n", imageName, imagePath)
+
+	size, err := utils.CalculateDirectorySize(imagePath)
+	if err == nil && size > 100*1024*1024 {
+		fmt.Printf("Warning: Image is large (%.2f MB)\n", float64(size)/(1024*1024))
+	}
+
+	if !utils.PromptForConfirmation(fmt.Sprintf("Are you sure you want to delete image '%s'?", imageName)) {
+		fmt.Println("Deletion cancelled.")
+		return
+	}
+
+	fmt.Printf("Deleting image '%s'...\n", imageName)
+	if err := os.RemoveAll(imagePath); err != nil {
+		panic(fmt.Errorf("failed to delete image '%s': %v", imageName, err))
+	}
+
+	fmt.Printf("Image '%s' has been successfully deleted.\n", imageName)
+}
+
+func DeleteAllImages(basePath string) {
+	imagesPath := filepath.Join(basePath, "images")
+
+	if _, err := os.Stat(imagesPath); os.IsNotExist(err) {
+		fmt.Println("No images directory found.")
+		return
+	} else if err != nil {
+		panic(err)
+	}
+
+	entries, err := os.ReadDir(imagesPath)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(entries) == 0 {
+		fmt.Println("No images found to delete.")
+		return
+	}
+
+	fmt.Printf("Found %d image(s) to delete:\n", len(entries))
+	totalSize := int64(0)
+	imageNames := []string{}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			imageNames = append(imageNames, entry.Name())
+			imagePath := filepath.Join(imagesPath, entry.Name())
+			size, err := utils.CalculateDirectorySize(imagePath)
+			sizeStr := "unknown size"
+			if err == nil {
+				totalSize += size
+				if size < 1024*1024 {
+					sizeStr = fmt.Sprintf("%.1f KB", float64(size)/1024)
+				} else {
+					sizeStr = fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
+				}
+			}
+			fmt.Printf("  - %s (%s)\n", entry.Name(), sizeStr)
+		}
+	}
+
+	if totalSize > 0 {
+		fmt.Printf("Total size: %.2f MB\n", float64(totalSize)/(1024*1024))
+	}
+
+	if !utils.PromptForConfirmation("Are you ABSOLUTELY sure you want to delete ALL images? This cannot be undone!") {
+		fmt.Println("Deletion cancelled.")
+		return
+	}
+
+	if !utils.PromptForConfirmation(fmt.Sprintf("Type 'delete all images' to confirm deletion of %d images", len(imageNames))) {
+		fmt.Println("Deletion cancelled.")
+		return
+	}
+
+	successCount := 0
+	for _, name := range imageNames {
+		imagePath := filepath.Join(imagesPath, name)
+		fmt.Printf("Deleting image '%s'...\n", name)
+		if err := os.RemoveAll(imagePath); err != nil {
+			fmt.Printf("Failed to delete image '%s': %v\n", name, err)
+		} else {
+			successCount++
+		}
+	}
+
+	fmt.Printf("Successfully deleted %d out of %d images.\n", successCount, len(imageNames))
+}
