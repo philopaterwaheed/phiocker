@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/philopaterwaheed/phiocker/internal/moods"
 )
@@ -19,6 +20,7 @@ func showHelp() {
 	fmt.Println("  run <container_name>        Run a container")
 	fmt.Println("  create <generator_file>     Create a new container from generator file")
 	fmt.Println("  download                    Download base images")
+	fmt.Println("  search <repository> [limit] Search for downloadable images in a repository (optional limit)")
 	fmt.Println("  delete <container_name>     Safely delete a specific container")
 	fmt.Println("  delete all                  Safely delete all containers")
 	fmt.Println("  delete list                 List all containers before deletion")
@@ -34,6 +36,8 @@ func showHelp() {
 	fmt.Println("  phiocker run my-container")
 	fmt.Println("  phiocker list")
 	fmt.Println("  phiocker list images")
+	fmt.Println("  phiocker search ubuntu")
+	fmt.Println("  phiocker search nginx:1.21")
 	fmt.Println("  phiocker delete my-container")
 	fmt.Println("  phiocker delete all")
 	fmt.Println("  phiocker delete image ubuntu")
@@ -59,6 +63,17 @@ func main() {
 		moods.Child(os.Args[2], basePath)
 	case "download":
 		moods.Download(basePath)
+	case "search":
+		if len(os.Args) < 3 {
+			panic("usage: search <repository> [limit]")
+		}
+		limit := 50
+		if len(os.Args) >= 4 {
+			if parsedLimit, err := strconv.Atoi(os.Args[3]); err == nil && parsedLimit > 0 {
+				limit = parsedLimit
+			}
+		}
+		moods.Search(os.Args[2], limit)
 	case "create":
 		if len(os.Args) < 3 {
 			panic("usage: create <generator_file>")
