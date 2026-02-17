@@ -1,14 +1,15 @@
 package daemon
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/philopaterwaheed/phiocker/internal/moods"
 )
@@ -18,13 +19,23 @@ const (
 	BasePath   = "/var/lib/phiocker"
 )
 
+type RunningContainer struct {
+	Name    string
+	PID     int
+	Started time.Time
+	Process *moods.ContainerProcess
+}
+
 type Daemon struct {
-	listener net.Listener
-	mu       sync.Mutex
+	listener   net.Listener
+	mu         sync.Mutex
+	containers map[string]*RunningContainer
 }
 
 func New() *Daemon {
-	return &Daemon{}
+	return &Daemon{
+		containers: make(map[string]*RunningContainer),
+	}
 }
 
 func (d *Daemon) Start() error {
@@ -83,25 +94,93 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-
 	switch cmd.Type {
 	case "run":
-		// Capture stdout/stderr
-		var outBuf bytes.Buffer
-		var errBuf bytes.Buffer
-
-		go moods.Run(cmd.Args, bytes.NewReader(nil), &outBuf, &errBuf)
-
-		output := outBuf.String()
-		errMsg := errBuf.String()
-
-		if errMsg != "" {
-			return Response{Status: "success", Output: output, Message: "Stderr: " + errMsg}
+		if len(cmd.Args) < 1 {
+			return Response{Status: "error", Message: "missing container name"}
 		}
-		return Response{Status: "success", Output: output}
+		name := cmd.Args[0]
+		d.mu.Lock()
+		defer d.mu.Unlock()
+
+		if _, exists := d.containers[name]; exists {
+			return Response{Status: "error", Message: fmt.Sprintf("container '%s' is already running", name)}
+		}
+
+		cp, err := moods.RunDetached(cmd.Args)
+		if err != nil {
+			return Response{Status: "error", Message: err.Error()}
+		}
+
+		rc := &RunningContainer{
+			Name:    name,
+			PID:     cp.PID(),
+			Started: time.Now(),
+			Process: cp,
+		}
+		d.containers[name] = rc
+
+		go func(name string, cp *moods.ContainerProcess) {
+			cp.Wait()
+			d.mu.Lock()
+			delete(d.containers, name)
+			d.mu.Unlock()
+		}(name, cp)
+
+		return Response{
+			Status: "success",
+			Output: fmt.Sprintf("Container '%s' started (PID %d)\n", name, cp.PID()),
+		}
+
+	case "attach":
+		if len(cmd.Args) < 1 {
+			return Response{Status: "error", Message: "missing container name"}
+		}
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		name := cmd.Args[0]
+		rc, exists := d.containers[name]
+		if !exists {
+			return Response{Status: "error", Message: fmt.Sprintf("container '%s' is not running", name)}
+		}
+
+		return Response{
+			Status: "success",
+			Output: strconv.Itoa(rc.PID),
+		}
+
+	case "ps":
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		if len(d.containers) == 0 {
+			return Response{Status: "success", Output: "No running containers.\n"}
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("%-20s %-10s %-20s\n", "NAME", "PID", "UPTIME"))
+		for _, rc := range d.containers {
+			uptime := time.Since(rc.Started).Truncate(time.Second)
+			sb.WriteString(fmt.Sprintf("%-20s %-10d %-20s\n", rc.Name, rc.PID, uptime))
+		}
+		return Response{Status: "success", Output: sb.String()}
+
+	case "stop":
+		if len(cmd.Args) < 1 {
+			return Response{Status: "error", Message: "missing container name"}
+		}
+		name := cmd.Args[0]
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		rc, exists := d.containers[name]
+		if !exists {
+			return Response{Status: "error", Message: fmt.Sprintf("container '%s' is not running", name)}
+		}
+		if err := rc.Process.Stop(); err != nil {
+			return Response{Status: "error", Message: fmt.Sprintf("failed to stop container: %v", err)}
+		}
+		delete(d.containers, name)
+		return Response{Status: "success", Output: fmt.Sprintf("Container '%s' stopped\n", name)}
 
 	case "list":
-		// We can capture stdout of moods.ListContainers
 		output := captureOutput(func() {
 			moods.ListContainers(BasePath)
 		})

@@ -15,6 +15,62 @@ const (
 	cgroupName = "phiocker"
 )
 
+type ContainerProcess struct {
+	Cmd       *exec.Cmd
+	CgPath    string
+	StdinPipe io.WriteCloser
+}
+
+func (cp *ContainerProcess) PID() int {
+	return cp.Cmd.Process.Pid
+}
+
+func (cp *ContainerProcess) Wait() error {
+	err := cp.Cmd.Wait()
+	deleteCgroup(cp.CgPath)
+	return err
+}
+
+func (cp *ContainerProcess) Stop() error {
+	if cp.StdinPipe != nil {
+		cp.StdinPipe.Close()
+	}
+	if err := cp.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		return cp.Cmd.Process.Kill()
+	}
+	return nil
+}
+
+func RunDetached(args []string) (*ContainerProcess, error) {
+	cmd := exec.Command(
+		"/proc/self/exe",
+		append([]string{"child"}, args...)...,
+	)
+
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stdin pipe: %v", err)
+	}
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWNS,
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start container: %v", err)
+	}
+
+	cgPath := createCgroup(cmd.Process.Pid)
+
+	return &ContainerProcess{
+		Cmd:       cmd,
+		CgPath:    cgPath,
+		StdinPipe: stdinPipe,
+	}, nil
+}
+
 func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) {
 	cmd := exec.Command(
 		"/proc/self/exe",

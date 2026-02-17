@@ -20,8 +20,10 @@ func showHelp() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  daemon                      Start the daemon")
-	fmt.Println("  run <container_name>        Run a container")
-
+	fmt.Println("  run <container_name>        Run a container (detached)")
+	fmt.Println("  attach <container_name>     Attach to a running container")
+	fmt.Println("  stop <container_name>       Stop a running container")
+	fmt.Println("  ps                          List running containers")
 	fmt.Println("  create <generator_file>     Create a new container from generator file")
 	fmt.Println("  download                    Download base images")
 	fmt.Println("  search <repository> [limit] Search for downloadable images in a repository (optional limit)")
@@ -38,6 +40,9 @@ func showHelp() {
 	fmt.Println("Examples:")
 	fmt.Println("  phiocker create example.json")
 	fmt.Println("  phiocker run my-container")
+	fmt.Println("  phiocker attach my-container")
+	fmt.Println("  phiocker stop my-container")
+	fmt.Println("  phiocker ps")
 	fmt.Println("  phiocker list")
 	fmt.Println("  phiocker list images")
 	fmt.Println("  phiocker search ubuntu")
@@ -89,6 +94,24 @@ func main() {
 				panic("usage: create <generator_file>")
 			}
 			client.SendCommand("create", os.Args[2:])
+		case "attach":
+			if len(os.Args) < 3 {
+				panic("usage: attach <container_name>")
+			}
+			client.AttachContainer(os.Args[2])
+		case "ps":
+			client.SendCommand("ps", nil)
+		case "stop":
+			if len(os.Args) < 3 {
+				panic("usage: stop <container_name>")
+			}
+			client.SendCommand("stop", os.Args[2:])
+		case "list":
+			if len(os.Args) >= 3 && os.Args[2] == "images" {
+				client.SendCommand("list", os.Args[2:])
+			} else {
+				client.SendCommand("list", nil)
+			}
 		case "delete":
 			client.SendCommand("delete", os.Args[2:])
 		default:
