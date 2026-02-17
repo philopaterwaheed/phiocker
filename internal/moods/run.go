@@ -109,7 +109,7 @@ func createCgroup(pid int) string {
 	}
 	writeFile(
 		filepath.Join(cgroupRoot, "cgroup.subtree_control"),
-		"+cpu +memory",
+		"+cpu +memory +pids",
 	)
 	writeFile(
 		filepath.Join(cgPath, "cpu.max"),
@@ -118,6 +118,10 @@ func createCgroup(pid int) string {
 	writeFile(
 		filepath.Join(cgPath, "memory.max"),
 		strconv.Itoa(100*1024*1024),
+	)
+	writeFile(
+		filepath.Join(cgPath, "pids.max"),
+		"20",
 	)
 
 	// Add process to cgroup
