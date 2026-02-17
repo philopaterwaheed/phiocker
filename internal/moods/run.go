@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"github.com/creack/pty"
+	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
 const (
@@ -19,6 +22,7 @@ type ContainerProcess struct {
 	Cmd       *exec.Cmd
 	CgPath    string
 	StdinPipe io.WriteCloser
+	PTYMaster *os.File // PTY master fd
 }
 
 func (cp *ContainerProcess) PID() int {
@@ -32,6 +36,9 @@ func (cp *ContainerProcess) Wait() error {
 }
 
 func (cp *ContainerProcess) Stop() error {
+	if cp.PTYMaster != nil {
+		cp.PTYMaster.Close()
+	}
 	if cp.StdinPipe != nil {
 		cp.StdinPipe.Close()
 	}
@@ -42,66 +49,55 @@ func (cp *ContainerProcess) Stop() error {
 }
 
 func RunDetached(args []string) (*ContainerProcess, error) {
+	cgPath, cgFile := setupCgroup()
+	defer cgFile.Close()
+
+	ptmx, tty, err := pty.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PTY: %v", err)
+	}
+
 	cmd := exec.Command(
 		"/proc/self/exe",
 		append([]string{"child"}, args...)...,
 	)
 
-	stdinPipe, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdin pipe: %v", err)
-	}
+	cmd.Stdin = tty
+	cmd.Stdout = tty
+	cmd.Stderr = tty
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid:  true,
+		Setctty: true,
+		Ctty:    0, // child fd 0 (stdin) = PTY slave
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
 			syscall.CLONE_NEWNS,
+		UseCgroupFD: true,
+		CgroupFD:    int(cgFile.Fd()),
 	}
 
 	if err := cmd.Start(); err != nil {
+		ptmx.Close()
+		tty.Close()
 		return nil, fmt.Errorf("failed to start container: %v", err)
 	}
 
-	cgPath := createCgroup(cmd.Process.Pid)
+	// Close slave in parent — child has its own copy
+	tty.Close()
+
+	// Set a sensible default terminal size
+	utils.SetPTYWinSize(ptmx, 24, 80)
 
 	return &ContainerProcess{
 		Cmd:       cmd,
 		CgPath:    cgPath,
-		StdinPipe: stdinPipe,
+		PTYMaster: ptmx,
 	}, nil
 }
 
-func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) {
-	cmd := exec.Command(
-		"/proc/self/exe",
-		append([]string{"child"}, args...)...,
-	)
-
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWNS,
-	}
-
-	if err := cmd.Start(); err != nil {
-		panic(err)
-	}
-
-	cgPath := createCgroup(cmd.Process.Pid)
-	defer deleteCgroup(cgPath)
-
-	if err := cmd.Wait(); err != nil {
-		panic(err)
-	}
-}
-
-func createCgroup(pid int) string {
+func setupCgroup() (string, *os.File) {
 	cgPath := filepath.Join(cgroupRoot, cgroupName)
-	fmt.Print(cgPath)
 
 	if err := os.MkdirAll(cgPath, 0755); err != nil && !os.IsExist(err) {
 		fmt.Println("err at MkdirAll:", err)
@@ -124,14 +120,13 @@ func createCgroup(pid int) string {
 		"20",
 	)
 
-	// Add process to cgroup
-	writeFile(
-		filepath.Join(cgPath, "cgroup.procs"),
-		strconv.Itoa(pid),
-	)
+	cgFile, err := os.Open(cgPath)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open cgroup dir: %v", err))
+	}
 	fmt.Print("finished cgroup setup\n")
 
-	return cgPath
+	return cgPath, cgFile
 }
 
 func deleteCgroup(path string) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/philopaterwaheed/phiocker/internal/moods"
+	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
 const (
@@ -24,6 +25,7 @@ type RunningContainer struct {
 	PID     int
 	Started time.Time
 	Process *moods.ContainerProcess
+	Mux     *AttachMux // I/O multiplexer for Docker-style attach
 }
 
 type Daemon struct {
@@ -78,16 +80,58 @@ type Response struct {
 }
 
 func (d *Daemon) handleConnection(conn net.Conn) {
-	defer conn.Close()
-
 	decoder := json.NewDecoder(conn)
 	var cmd Command
 	if err := decoder.Decode(&cmd); err != nil {
+		conn.Close()
 		return
 	}
 
+	if cmd.Type == "attach" {
+		d.handleAttach(conn, cmd)
+		return
+	}
+
+	defer conn.Close()
 	response := d.executeCommand(cmd)
 	json.NewEncoder(conn).Encode(response)
+}
+
+func (d *Daemon) handleAttach(conn net.Conn, cmd Command) {
+	defer conn.Close()
+
+	if len(cmd.Args) < 1 {
+		json.NewEncoder(conn).Encode(Response{Status: "error", Message: "missing container name"})
+		return
+	}
+
+	name := cmd.Args[0]
+	d.mu.Lock()
+	rc, exists := d.containers[name]
+	d.mu.Unlock()
+
+	if !exists {
+		json.NewEncoder(conn).Encode(Response{Status: "error", Message: fmt.Sprintf("container '%s' is not running", name)})
+		return
+	}
+
+	// Apply terminal size
+	if len(cmd.Args) >= 3 {
+		rows, _ := strconv.Atoi(cmd.Args[1])
+		cols, _ := strconv.Atoi(cmd.Args[2])
+		if rows > 0 && cols > 0 {
+			utils.SetPTYWinSize(rc.Process.PTYMaster, uint16(rows), uint16(cols))
+		}
+	}
+
+	// Send success + PID, then switch to raw byte streaming
+	json.NewEncoder(conn).Encode(Response{
+		Status: "success",
+		Output: strconv.Itoa(rc.PID),
+	})
+
+	// Block until client detaches or container exits
+	rc.Mux.Attach(conn)
 }
 
 func (d *Daemon) executeCommand(cmd Command) Response {
@@ -115,6 +159,7 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			PID:     cp.PID(),
 			Started: time.Now(),
 			Process: cp,
+			Mux:     NewAttachMux(cp.PTYMaster),
 		}
 		d.containers[name] = rc
 
@@ -128,23 +173,6 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 		return Response{
 			Status: "success",
 			Output: fmt.Sprintf("Container '%s' started (PID %d)\n", name, cp.PID()),
-		}
-
-	case "attach":
-		if len(cmd.Args) < 1 {
-			return Response{Status: "error", Message: "missing container name"}
-		}
-		d.mu.Lock()
-		defer d.mu.Unlock()
-		name := cmd.Args[0]
-		rc, exists := d.containers[name]
-		if !exists {
-			return Response{Status: "error", Message: fmt.Sprintf("container '%s' is not running", name)}
-		}
-
-		return Response{
-			Status: "success",
-			Output: strconv.Itoa(rc.PID),
 		}
 
 	case "ps":

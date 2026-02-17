@@ -21,7 +21,7 @@ func showHelp() {
 	fmt.Println("Commands:")
 	fmt.Println("  daemon                      Start the daemon")
 	fmt.Println("  run <container_name>        Run a container (detached)")
-	fmt.Println("  attach <container_name>     Attach to a running container")
+	fmt.Println("  attach <container_name>     Attach to a running container (Ctrl+P, Ctrl+Q to detach)")
 	fmt.Println("  stop <container_name>       Stop a running container")
 	fmt.Println("  ps                          List running containers")
 	fmt.Println("  create <generator_file>     Create a new container from generator file")
