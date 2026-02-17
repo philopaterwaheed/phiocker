@@ -91,8 +91,6 @@ func (d *Daemon) handleConnection(conn net.Conn) {
 }
 
 func (d *Daemon) executeCommand(cmd Command) Response {
-	d.mu.Lock()
-	defer d.mu.Unlock()
 
 	switch cmd.Type {
 	case "run":
