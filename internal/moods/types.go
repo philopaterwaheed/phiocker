@@ -10,12 +10,20 @@ type CopySpec struct {
 	Dst string `json:"dst"`
 }
 
+type Limits struct {
+	CPUQuota  int `json:"cpuQuota,omitempty"`  // CPU time in microseconds per period
+	CPUPeriod int `json:"cpuPeriod,omitempty"` // CPU period in microseconds
+	Memory    int `json:"memory,omitempty"`    // Memory limit in bytes
+	PIDs      int `json:"pids,omitempty"`      // Maximum number of PIDs
+}
+
 type ContainerConfig struct {
 	Name      string     `json:"name"`
 	Baseimage string     `json:"baseImage"`
 	Cmd       []string   `json:"cmd,omitempty"`
 	Workdir   string     `json:"workdir,omitempty"`
 	Copy      []CopySpec `json:"copy,omitempty"`
+	Limits    Limits     `json:"limits,omitempty"`
 }
 
 func LoadConfig(reader io.Reader) ContainerConfig {
@@ -26,4 +34,3 @@ func LoadConfig(reader io.Reader) ContainerConfig {
 	}
 	return config
 }
-

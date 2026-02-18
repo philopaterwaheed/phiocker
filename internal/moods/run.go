@@ -48,8 +48,21 @@ func (cp *ContainerProcess) Stop() error {
 	return nil
 }
 
-func RunDetached(args []string) (*ContainerProcess, error) {
-	cgPath, cgFile := setupCgroup()
+func RunDetached(args []string, basePath string) (*ContainerProcess, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("missing container name")
+	}
+	containerName := args[0]
+
+	configPath := filepath.Join(basePath, "containers", containerName, "config.json")
+	var limits Limits
+	if configFile, err := utils.OpenFile(configPath); err == nil {
+		config := LoadConfig(configFile)
+		limits = config.Limits
+		configFile.Close()
+	}
+
+	cgPath, cgFile := setupCgroup(limits)
 	defer cgFile.Close()
 
 	ptmx, tty, err := pty.Open()
@@ -96,7 +109,7 @@ func RunDetached(args []string) (*ContainerProcess, error) {
 	}, nil
 }
 
-func setupCgroup() (string, *os.File) {
+func setupCgroup(limits Limits) (string, *os.File) {
 	cgPath := filepath.Join(cgroupRoot, cgroupName)
 
 	if err := os.MkdirAll(cgPath, 0755); err != nil && !os.IsExist(err) {
@@ -107,17 +120,36 @@ func setupCgroup() (string, *os.File) {
 		filepath.Join(cgroupRoot, "cgroup.subtree_control"),
 		"+cpu +memory +pids",
 	)
+
+	cpuQuota := 50000
+	cpuPeriod := 100000
+	if limits.CPUQuota > 0 {
+		cpuQuota = limits.CPUQuota
+	}
+	if limits.CPUPeriod > 0 {
+		cpuPeriod = limits.CPUPeriod
+	}
 	writeFile(
 		filepath.Join(cgPath, "cpu.max"),
-		"50000 100000",
+		fmt.Sprintf("%d %d", cpuQuota, cpuPeriod),
 	)
+
+	memoryLimit := 100 * 1024 * 1024
+	if limits.Memory > 0 {
+		memoryLimit = limits.Memory
+	}
 	writeFile(
 		filepath.Join(cgPath, "memory.max"),
-		strconv.Itoa(100*1024*1024),
+		strconv.Itoa(memoryLimit),
 	)
+
+	pidLimit := 20
+	if limits.PIDs > 0 {
+		pidLimit = limits.PIDs
+	}
 	writeFile(
 		filepath.Join(cgPath, "pids.max"),
-		"20",
+		strconv.Itoa(pidLimit),
 	)
 
 	cgFile, err := os.Open(cgPath)

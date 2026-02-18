@@ -1,12 +1,18 @@
 {
-    "name": "es",
-    "baseImage": "alpine:latest",
-    "cmd": ["ls", "-la"],
+    "name": "p4",
+    "baseImage": "ubuntu:latest",
+    "cmd": ["/bin/sh"],
     "workdir": "/bin",
     "copy": [
         {
             "src": "/bin/bash",
             "dst": "/bin/bash"
         }
-    ]
+    ],
+    "limits": {
+        "cpuQuota": 50000,
+        "cpuPeriod": 100000,
+        "memory": 104857600,
+        "pids": 20
+    }
 }

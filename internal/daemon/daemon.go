@@ -149,7 +149,7 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			return Response{Status: "error", Message: fmt.Sprintf("container '%s' is already running", name)}
 		}
 
-		cp, err := moods.RunDetached(cmd.Args)
+		cp, err := moods.RunDetached(cmd.Args, BasePath)
 		if err != nil {
 			return Response{Status: "error", Message: err.Error()}
 		}
