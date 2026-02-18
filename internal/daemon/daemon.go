@@ -275,6 +275,25 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 		}
 		return Response{Status: "success", Output: output}
 
+	case "update":
+		if len(cmd.Args) < 1 {
+			return Response{Status: "error", Message: "missing args for update"}
+		}
+
+		var output string
+		switch cmd.Args[0] {
+		case "all":
+			output = captureOutput(func() {
+				moods.UpdateAllImages(BasePath)
+			})
+		default:
+			imageName := cmd.Args[0]
+			output = captureOutput(func() {
+				moods.UpdateImage(imageName, BasePath)
+			})
+		}
+		return Response{Status: "success", Output: output}
+
 	default:
 		return Response{Status: "error", Message: "unknown command"}
 	}

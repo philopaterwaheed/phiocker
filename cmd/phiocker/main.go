@@ -26,6 +26,8 @@ func showHelp() {
 	fmt.Println("  ps                          List running containers")
 	fmt.Println("  create <generator_file>     Create a new container from generator file")
 	fmt.Println("  download                    Download base images")
+	fmt.Println("  update <image_name>         Update a specific image")
+	fmt.Println("  update all                  Update all images")
 	fmt.Println("  search <repository> [limit] Search for downloadable images in a repository (optional limit)")
 	fmt.Println("  delete <container_name>     Safely delete a specific container")
 	fmt.Println("  delete all                  Safely delete all containers")
@@ -45,6 +47,8 @@ func showHelp() {
 	fmt.Println("  phiocker list images")
 	fmt.Println("  phiocker search ubuntu")
 	fmt.Println("  phiocker search nginx:1.21")
+	fmt.Println("  phiocker update ubuntu")
+	fmt.Println("  phiocker update all")
 	fmt.Println("  phiocker delete my-container")
 	fmt.Println("  phiocker delete all")
 	fmt.Println("  phiocker delete image ubuntu")
@@ -112,6 +116,8 @@ func main() {
 			}
 		case "delete":
 			client.SendCommand("delete", os.Args[2:])
+		case "update":
+			client.SendCommand("update", os.Args[2:])
 		default:
 			// Fallback or error?
 			if os.Args[1] == "download" || os.Args[1] == "search" {
