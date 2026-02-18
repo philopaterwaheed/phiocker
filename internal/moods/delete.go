@@ -35,11 +35,6 @@ func DeleteContainer(containerName, basePath string) error {
 		fmt.Printf("Warning: Container is large (%.2f MB)\n", float64(size)/(1024*1024))
 	}
 
-	if !utils.PromptForConfirmation(fmt.Sprintf("Are you sure you want to delete container '%s'?", containerName)) {
-		fmt.Println("Deletion cancelled.")
-		return nil
-	}
-
 	fmt.Printf("Deleting container '%s'...\n", containerName)
 	if err := os.RemoveAll(containerPath); err != nil {
 		return fmt.Errorf("failed to delete container '%s': %v", containerName, err)
@@ -95,15 +90,7 @@ func DeleteAllContainers(basePath string) error {
 		fmt.Printf("Total size: %.2f MB\n", float64(totalSize)/(1024*1024))
 	}
 
-	if !utils.PromptForConfirmation("Are you ABSOLUTELY sure you want to delete ALL containers? This cannot be undone!") {
-		fmt.Println("Deletion cancelled.")
-		return nil
-	}
 
-	if !utils.PromptForConfirmation(fmt.Sprintf("Type 'delete all containers' to confirm deletion of %d containers", len(containerNames))) {
-		fmt.Println("Deletion cancelled.")
-		return nil
-	}
 
 	successCount := 0
 	for _, name := range containerNames {
@@ -117,7 +104,7 @@ func DeleteAllContainers(basePath string) error {
 	}
 
 	fmt.Printf("Successfully deleted %d out of %d containers.\n", successCount, len(containerNames))
-return nil
+	return nil
 }
 
 func DeleteImage(imageName, basePath string) error {
@@ -146,18 +133,13 @@ func DeleteImage(imageName, basePath string) error {
 		fmt.Printf("Warning: Image is large (%.2f MB)\n", float64(size)/(1024*1024))
 	}
 
-	if !utils.PromptForConfirmation(fmt.Sprintf("Are you sure you want to delete image '%s'?", imageName)) {
-		fmt.Println("Deletion cancelled.")
-		return nil
-	}
-
 	fmt.Printf("Deleting image '%s'...\n", imageName)
 	if err := os.RemoveAll(imagePath); err != nil {
 		return fmt.Errorf("failed to delete image '%s': %v", imageName, err)
 	}
 
 	fmt.Printf("Image '%s' has been successfully deleted.\n", imageName)
-return nil
+	return nil
 }
 
 func DeleteAllImages(basePath string) error {
@@ -206,16 +188,6 @@ func DeleteAllImages(basePath string) error {
 		fmt.Printf("Total size: %.2f MB\n", float64(totalSize)/(1024*1024))
 	}
 
-	if !utils.PromptForConfirmation("Are you ABSOLUTELY sure you want to delete ALL images? This cannot be undone!") {
-		fmt.Println("Deletion cancelled.")
-		return nil
-	}
-
-	if !utils.PromptForConfirmation(fmt.Sprintf("Type 'delete all images' to confirm deletion of %d images", len(imageNames))) {
-		fmt.Println("Deletion cancelled.")
-		return nil
-	}
-
 	successCount := 0
 	for _, name := range imageNames {
 		imagePath := filepath.Join(imagesPath, name)
@@ -228,5 +200,5 @@ func DeleteAllImages(basePath string) error {
 	}
 
 	fmt.Printf("Successfully deleted %d out of %d images.\n", successCount, len(imageNames))
-return nil
+	return nil
 }

@@ -128,7 +128,7 @@ func main() {
 		return
 	}
 
-// For command that don't need to run on the back
+	// For command that don't need to run on the back
 LocalMode:
 	switch os.Args[1] {
 	case "help", "-h", "--help":

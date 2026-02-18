@@ -30,10 +30,6 @@ func UpdateImage(imageName, basePath string) error {
 		}
 	}
 
-	if !utils.PromptForConfirmation(fmt.Sprintf("Are you sure you want to update image '%s'? This will re-download the image.", imageName)) {
-		fmt.Println("Update cancelled.")
-		return nil
-	}
 
 	fmt.Printf("Removing old version of image '%s'...\n", imageName)
 	if err := os.RemoveAll(imagePath); err != nil {
@@ -96,10 +92,6 @@ func UpdateAllImages(basePath string) error {
 		fmt.Printf("  - %s (%s)\n", name, sizeStr)
 	}
 
-	if !utils.PromptForConfirmation("Are you sure you want to update ALL images? This will re-download all images.") {
-		fmt.Println("Update cancelled.")
-		return nil
-	}
 
 	successCount := 0
 	failCount := 0
