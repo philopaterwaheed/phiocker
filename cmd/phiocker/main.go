@@ -29,10 +29,8 @@ func showHelp() {
 	fmt.Println("  search <repository> [limit] Search for downloadable images in a repository (optional limit)")
 	fmt.Println("  delete <container_name>     Safely delete a specific container")
 	fmt.Println("  delete all                  Safely delete all containers")
-	fmt.Println("  delete list                 List all containers before deletion")
 	fmt.Println("  delete image <image_name>   Safely delete a specific image")
 	fmt.Println("  delete image all            Safely delete all images")
-	fmt.Println("  delete image list           List all images before deletion")
 	fmt.Println("  list                        List all available containers")
 	fmt.Println("  list images                 List all available images")
 	fmt.Println("  help, -h, --help            Show this help message")
@@ -142,33 +140,6 @@ LocalMode:
 			}
 		}
 		moods.Search(os.Args[2], limit)
-	// TODO: make the daemon run it but without effecting it if running
-	case "delete":
-		if len(os.Args) < 3 {
-			panic("usage: delete <container_name> | delete all | delete list | delete image <image_name> | delete image all | delete image list")
-		}
-		switch os.Args[2] {
-		case "all":
-			moods.DeleteAllContainers(basePath)
-		case "list":
-			moods.ListContainers(basePath)
-		case "image":
-			if len(os.Args) < 4 {
-				panic("usage: delete image <image_name> | delete image all | delete image list")
-			}
-			switch os.Args[3] {
-			case "all":
-				moods.DeleteAllImages(basePath)
-			case "list":
-				moods.ListImages(basePath)
-			default:
-				imageName := os.Args[3]
-				moods.DeleteImage(imageName, basePath)
-			}
-		default:
-			containerName := os.Args[2]
-			moods.DeleteContainer(containerName, basePath)
-		}
 	case "list":
 		if len(os.Args) >= 3 && os.Args[2] == "images" {
 			moods.ListImages(basePath)

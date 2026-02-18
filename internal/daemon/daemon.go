@@ -207,9 +207,18 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 		return Response{Status: "success", Output: fmt.Sprintf("Container '%s' stopped\n", name)}
 
 	case "list":
-		output := captureOutput(func() {
-			moods.ListContainers(BasePath)
-		})
+		var output string
+		if len(cmd.Args) > 0 && cmd.Args[0] == "images" {
+			// List images
+			output = captureOutput(func() {
+				moods.ListImages(BasePath)
+			})
+		} else {
+			// List containers
+			output = captureOutput(func() {
+				moods.ListContainers(BasePath)
+			})
+		}
 		return Response{Status: "success", Output: output}
 
 	case "create":
@@ -225,13 +234,45 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 		if len(cmd.Args) < 1 {
 			return Response{Status: "error", Message: "missing args for delete"}
 		}
-		output := captureOutput(func() {
-			if cmd.Args[0] == "all" {
-				moods.DeleteAllContainers(BasePath)
-			} else {
-				moods.DeleteContainer(cmd.Args[0], BasePath)
+
+		var output string
+		switch cmd.Args[0] {
+		case "all":
+			d.mu.Lock()
+			defer d.mu.Unlock()
+			if len(d.containers) > 0 {
+				return Response{Status: "error", Message: "cannot delete all containers while some are still running"}
 			}
-		})
+			output = captureOutput(func() {
+				moods.DeleteAllContainers(BasePath)
+			})
+		case "image":
+			if len(cmd.Args) < 2 {
+				return Response{Status: "error", Message: "missing image name or subcommand for delete image"}
+			}
+			switch cmd.Args[1] {
+			case "all":
+				output = captureOutput(func() {
+					moods.DeleteAllImages(BasePath)
+				})
+			default:
+				imageName := cmd.Args[1]
+				output = captureOutput(func() {
+					moods.DeleteImage(imageName, BasePath)
+				})
+			}
+		default:
+			// Delete specific container
+			d.mu.Lock()
+			defer d.mu.Unlock()
+			if _, exists := d.containers[cmd.Args[0]]; exists {
+				return Response{Status: "error", Message: fmt.Sprintf("cannot delete container '%s' while it is still running", cmd.Args[0])}
+			}
+			containerName := cmd.Args[0]
+			output = captureOutput(func() {
+				moods.DeleteContainer(containerName, BasePath)
+			})
+		}
 		return Response{Status: "success", Output: output}
 
 	default:
