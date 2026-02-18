@@ -1,5 +1,12 @@
 {
     "name": "es",
     "baseImage": "alpine:latest",
-    "cmd": ["ls", "-la"]
+    "cmd": ["ls", "-la"],
+    "workdir": "/bin",
+    "copy": [
+        {
+            "src": "/bin/bash",
+            "dst": "/bin/bash"
+        }
+    ]
 }

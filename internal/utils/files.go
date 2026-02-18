@@ -49,16 +49,28 @@ func OpenFile(path string) (*FileWrapper, error) {
 }
 
 func CopyFile(src, dst string) error {
+	sourceInfo, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
+	if sourceInfo.Mode()&os.ModeSymlink != 0 {
+		linkTarget, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			return err
+		}
+		os.Remove(dst)
+		return os.Symlink(linkTarget, dst)
+	}
+
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer sourceFile.Close()
-
-	sourceInfo, err := sourceFile.Stat()
-	if err != nil {
-		return err
-	}
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return err

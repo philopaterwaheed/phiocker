@@ -30,8 +30,13 @@ func Child(name, basePath string) {
 		fmt.Printf("err at Chroot: %v\n", err)
 		panic(err)
 	}
-	if err := os.Chdir("/"); err != nil {
-		fmt.Printf("err at chdir: %v\n", err)
+	
+	workdir := "/"
+	if config.Workdir != "" {
+		workdir = config.Workdir
+	}
+	if err := os.Chdir(workdir); err != nil {
+		fmt.Printf("err at chdir to %s: %v\n", workdir, err)
 		panic(err)
 	}
 	if err := syscall.Mount("proc", "/proc", "proc", 0, ""); err != nil {

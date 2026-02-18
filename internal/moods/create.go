@@ -55,6 +55,46 @@ func Create(generatorFilePath, basePath string) {
 		panic(fmt.Sprintf("Failed to copy image to container: %v", err))
 	}
 
+	if len(config.Copy) > 0 {
+		fmt.Printf("Copying %d file(s) to container...\n", len(config.Copy))
+		for _, copySpec := range config.Copy {
+			srcPath := copySpec.Src
+			if !filepath.IsAbs(srcPath) {
+				configDir := filepath.Dir(file.Path)
+				srcPath = filepath.Join(configDir, srcPath)
+			}
+
+			dstPath := filepath.Join(containerPath, copySpec.Dst)
+
+			info, err := os.Lstat(srcPath)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to stat source '%s': %v", srcPath, err))
+			}
+
+			if info.IsDir() {
+				fmt.Printf("  Copying directory %s -> %s\n", srcPath, copySpec.Dst)
+				if err := utils.CopyDirectory(srcPath, dstPath); err != nil {
+					panic(fmt.Sprintf("Failed to copy directory '%s' to '%s': %v", srcPath, copySpec.Dst, err))
+				}
+			} else {
+				fmt.Printf("  Copying %s -> %s\n", srcPath, copySpec.Dst)
+				if err := utils.CopyFile(srcPath, dstPath); err != nil {
+					panic(fmt.Sprintf("Failed to copy '%s' to '%s': %v", srcPath, copySpec.Dst, err))
+				}
+			}
+		}
+		fmt.Println("File copying completed.")
+	}
+
+	if config.Workdir != "" {
+		workdirPath := filepath.Join(containerPath, config.Workdir)
+		if err := os.MkdirAll(workdirPath, 0755); err != nil {
+			fmt.Printf("Warning: Failed to create workdir '%s': %v\n", config.Workdir, err)
+		} else {
+			fmt.Printf("Created working directory: %s\n", config.Workdir)
+		}
+	}
+
 	cmd.RunCmd("cp", file.Path, filepath.Join(basePath, "containers", name, "config.json"))
 	fmt.Printf("Container %s created successfully!\n", name)
 }
