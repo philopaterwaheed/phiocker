@@ -8,24 +8,24 @@ import (
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
-func ListContainers(basePath string) {
+func ListContainers(basePath string) error {
 	containersPath := filepath.Join(basePath, "containers")
 
 	if _, err := os.Stat(containersPath); os.IsNotExist(err) {
 		fmt.Println("No containers directory found.")
-		return
+		return nil
 	} else if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to stat containers directory: %v", err)
 	}
 
 	entries, err := os.ReadDir(containersPath)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to read containers directory: %v", err)
 	}
 
 	if len(entries) == 0 {
 		fmt.Println("No containers found.")
-		return
+		return nil
 	}
 
 	fmt.Println("Available containers:")
@@ -44,26 +44,27 @@ func ListContainers(basePath string) {
 			fmt.Printf("  - %s (%s)\n", entry.Name(), sizeStr)
 		}
 	}
+	return nil
 }
 
-func ListImages(basePath string) {
+func ListImages(basePath string) error {
 	imagesPath := filepath.Join(basePath, "images")
 
 	if _, err := os.Stat(imagesPath); os.IsNotExist(err) {
 		fmt.Println("No images directory found.")
-		return
+		return nil
 	} else if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to stat images directory: %v", err)
 	}
 
 	entries, err := os.ReadDir(imagesPath)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to read images directory: %v", err)
 	}
 
 	if len(entries) == 0 {
 		fmt.Println("No images found.")
-		return
+		return nil
 	}
 
 	fmt.Println("Available images:")
@@ -82,4 +83,5 @@ func ListImages(basePath string) {
 			fmt.Printf("  - %s (%s)\n", entry.Name(), sizeStr)
 		}
 	}
+	return nil
 }

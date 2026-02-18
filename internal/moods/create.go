@@ -7,14 +7,13 @@ import (
 
 	"github.com/philopaterwaheed/phiocker/internal/cmd"
 	"github.com/philopaterwaheed/phiocker/internal/download"
-	"github.com/philopaterwaheed/phiocker/internal/errors"
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
-func Create(generatorFilePath, basePath string) {
+func Create(generatorFilePath, basePath string) error {
 	file, err := utils.OpenFile(generatorFilePath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 	config := LoadConfig(file)
@@ -25,23 +24,27 @@ func Create(generatorFilePath, basePath string) {
 
 	containerPath := filepath.Join(basePath, "containers", name, "rootfs")
 	if _, err := os.Stat(containerPath); err == nil {
-		panic(fmt.Sprintf("Container '%s' already exists.", name))
+		return fmt.Errorf("container '%s' already exists", name)
 	}
 
 	// Check if base image exists, if not download it
 	imagePath := filepath.Join(basePath, "images", baseimage, "rootfs")
 	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
 		fmt.Printf("Base image '%s' not found, downloading...\n", baseimage)
-		errors.Must(os.MkdirAll(filepath.Dir(imagePath), 0755))
-		errors.Must(download.PullAndExtractImage(baseimage, imagePath))
+		if err := os.MkdirAll(filepath.Dir(imagePath), 0755); err != nil {
+			return fmt.Errorf("failed to create image directory: %v", err)
+		}
+		if err := download.PullAndExtractImage(baseimage, imagePath); err != nil {
+			return fmt.Errorf("failed to download base image: %v", err)
+		}
 		fmt.Printf("Base image '%s' downloaded successfully.\n", baseimage)
 	} else if err != nil {
-		panic(fmt.Sprintf("Error checking base image: %v", err))
+		return fmt.Errorf("error checking base image: %v", err)
 	} else {
 		if isEmpty, err := utils.IsDirectoryEmpty(imagePath); err == nil && isEmpty {
 			fmt.Printf("Base image '%s' directory is empty, re-downloading...\n", baseimage)
 			if err := download.PullAndExtractImage(baseimage, imagePath); err != nil {
-				panic(fmt.Sprintf("Failed to download base image: %v", err))
+				return fmt.Errorf("failed to download base image: %v", err)
 			}
 			fmt.Printf("Base image '%s' downloaded successfully.\n", baseimage)
 		} else {
@@ -49,10 +52,12 @@ func Create(generatorFilePath, basePath string) {
 		}
 	}
 
-	errors.Must(os.MkdirAll(containerPath, 0755))
+	if err := os.MkdirAll(containerPath, 0755); err != nil {
+		return fmt.Errorf("failed to create container directory: %v", err)
+	}
 
 	if err := utils.CopyDirectory(imagePath, containerPath); err != nil {
-		panic(fmt.Sprintf("Failed to copy image to container: %v", err))
+		return fmt.Errorf("failed to copy image to container: %v", err)
 	}
 
 	if len(config.Copy) > 0 {
@@ -68,18 +73,18 @@ func Create(generatorFilePath, basePath string) {
 
 			info, err := os.Lstat(srcPath)
 			if err != nil {
-				panic(fmt.Sprintf("Failed to stat source '%s': %v", srcPath, err))
+				return fmt.Errorf("failed to stat source '%s': %v", srcPath, err)
 			}
 
 			if info.IsDir() {
 				fmt.Printf("  Copying directory %s -> %s\n", srcPath, copySpec.Dst)
 				if err := utils.CopyDirectory(srcPath, dstPath); err != nil {
-					panic(fmt.Sprintf("Failed to copy directory '%s' to '%s': %v", srcPath, copySpec.Dst, err))
+					return fmt.Errorf("failed to copy directory '%s' to '%s': %v", srcPath, copySpec.Dst, err)
 				}
 			} else {
 				fmt.Printf("  Copying %s -> %s\n", srcPath, copySpec.Dst)
 				if err := utils.CopyFile(srcPath, dstPath); err != nil {
-					panic(fmt.Sprintf("Failed to copy '%s' to '%s': %v", srcPath, copySpec.Dst, err))
+					return fmt.Errorf("failed to copy '%s' to '%s': %v", srcPath, copySpec.Dst, err)
 				}
 			}
 		}
@@ -97,4 +102,5 @@ func Create(generatorFilePath, basePath string) {
 
 	cmd.RunCmd("cp", file.Path, filepath.Join(basePath, "containers", name, "config.json"))
 	fmt.Printf("Container %s created successfully!\n", name)
+	return nil
 }

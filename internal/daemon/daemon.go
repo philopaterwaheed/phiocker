@@ -207,17 +207,21 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 		return Response{Status: "success", Output: fmt.Sprintf("Container '%s' stopped\n", name)}
 
 	case "list":
+		var listErr error
 		var output string
 		if len(cmd.Args) > 0 && cmd.Args[0] == "images" {
 			// List images
 			output = captureOutput(func() {
-				moods.ListImages(BasePath)
+				listErr = moods.ListImages(BasePath)
 			})
 		} else {
 			// List containers
 			output = captureOutput(func() {
-				moods.ListContainers(BasePath)
+				listErr = moods.ListContainers(BasePath)
 			})
+		}
+		if listErr != nil {
+			return Response{Status: "error", Message: listErr.Error(), Output: output}
 		}
 		return Response{Status: "success", Output: output}
 
@@ -225,9 +229,13 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 		if len(cmd.Args) < 1 {
 			return Response{Status: "error", Message: "missing generator file"}
 		}
+		var createErr error
 		output := captureOutput(func() {
-			moods.Create(cmd.Args[0], BasePath)
+			createErr = moods.Create(cmd.Args[0], BasePath)
 		})
+		if createErr != nil {
+			return Response{Status: "error", Message: createErr.Error(), Output: output}
+		}
 		return Response{Status: "success", Output: output}
 
 	case "delete":
@@ -235,6 +243,7 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			return Response{Status: "error", Message: "missing args for delete"}
 		}
 
+		var deleteErr error
 		var output string
 		switch cmd.Args[0] {
 		case "all":
@@ -244,7 +253,7 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 				return Response{Status: "error", Message: "cannot delete all containers while some are still running"}
 			}
 			output = captureOutput(func() {
-				moods.DeleteAllContainers(BasePath)
+				deleteErr = moods.DeleteAllContainers(BasePath)
 			})
 		case "image":
 			if len(cmd.Args) < 2 {
@@ -253,12 +262,12 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			switch cmd.Args[1] {
 			case "all":
 				output = captureOutput(func() {
-					moods.DeleteAllImages(BasePath)
+					deleteErr = moods.DeleteAllImages(BasePath)
 				})
 			default:
 				imageName := cmd.Args[1]
 				output = captureOutput(func() {
-					moods.DeleteImage(imageName, BasePath)
+					deleteErr = moods.DeleteImage(imageName, BasePath)
 				})
 			}
 		default:
@@ -270,8 +279,11 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			}
 			containerName := cmd.Args[0]
 			output = captureOutput(func() {
-				moods.DeleteContainer(containerName, BasePath)
+				deleteErr = moods.DeleteContainer(containerName, BasePath)
 			})
+		}
+		if deleteErr != nil {
+			return Response{Status: "error", Message: deleteErr.Error(), Output: output}
 		}
 		return Response{Status: "success", Output: output}
 
@@ -280,17 +292,21 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			return Response{Status: "error", Message: "missing args for update"}
 		}
 
+		var updateErr error
 		var output string
 		switch cmd.Args[0] {
 		case "all":
 			output = captureOutput(func() {
-				moods.UpdateAllImages(BasePath)
+				updateErr = moods.UpdateAllImages(BasePath)
 			})
 		default:
 			imageName := cmd.Args[0]
 			output = captureOutput(func() {
-				moods.UpdateImage(imageName, BasePath)
+				updateErr = moods.UpdateImage(imageName, BasePath)
 			})
+		}
+		if updateErr != nil {
+			return Response{Status: "error", Message: updateErr.Error(), Output: output}
 		}
 		return Response{Status: "success", Output: output}
 

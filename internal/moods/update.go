@@ -9,14 +9,14 @@ import (
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
-func UpdateImage(imageName, basePath string) {
+func UpdateImage(imageName, basePath string) error {
 	imagePath := filepath.Join(basePath, "images", imageName, "rootfs")
 
 	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
 		fmt.Printf("Image '%s' does not exist. Use 'download' to download it first.\n", imageName)
-		return
+		return nil
 	} else if err != nil {
-		panic(err)
+		return fmt.Errorf("operation failed: %v", err)
 	}
 
 	fmt.Printf("Image '%s' found.\n", imageName)
@@ -32,40 +32,41 @@ func UpdateImage(imageName, basePath string) {
 
 	if !utils.PromptForConfirmation(fmt.Sprintf("Are you sure you want to update image '%s'? This will re-download the image.", imageName)) {
 		fmt.Println("Update cancelled.")
-		return
+		return nil
 	}
 
 	fmt.Printf("Removing old version of image '%s'...\n", imageName)
 	if err := os.RemoveAll(imagePath); err != nil {
-		panic(fmt.Errorf("failed to remove old image: %v", err))
+		return fmt.Errorf("failed to remove old image: %v", err)
 	}
 
 	fmt.Printf("Downloading updated image '%s'...\n", imageName)
 	if err := download.PullAndExtractImage(imageName, imagePath); err != nil {
-		panic(fmt.Errorf("failed to download/extract image: %v", err))
+		return fmt.Errorf("failed to download/extract image: %v", err)
 	}
 
 	fmt.Printf("Image '%s' has been successfully updated.\n", imageName)
+return nil
 }
 
-func UpdateAllImages(basePath string) {
+func UpdateAllImages(basePath string) error {
 	imagesPath := filepath.Join(basePath, "images")
 
 	if _, err := os.Stat(imagesPath); os.IsNotExist(err) {
 		fmt.Println("No images directory found.")
-		return
+		return nil
 	} else if err != nil {
-		panic(err)
+		return fmt.Errorf("operation failed: %v", err)
 	}
 
 	entries, err := os.ReadDir(imagesPath)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("operation failed: %v", err)
 	}
 
 	if len(entries) == 0 {
 		fmt.Println("No images found to update.")
-		return
+		return nil
 	}
 
 	imageNames := []string{}
@@ -77,7 +78,7 @@ func UpdateAllImages(basePath string) {
 
 	if len(imageNames) == 0 {
 		fmt.Println("No images found to update.")
-		return
+		return nil
 	}
 
 	fmt.Printf("Found %d image(s) to update:\n", len(imageNames))
@@ -97,7 +98,7 @@ func UpdateAllImages(basePath string) {
 
 	if !utils.PromptForConfirmation("Are you sure you want to update ALL images? This will re-download all images.") {
 		fmt.Println("Update cancelled.")
-		return
+		return nil
 	}
 
 	successCount := 0
@@ -126,4 +127,5 @@ func UpdateAllImages(basePath string) {
 	}
 
 	fmt.Printf("\nUpdate complete: %d succeeded, %d failed.\n", successCount, failCount)
+return nil
 }
