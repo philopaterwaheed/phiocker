@@ -1,0 +1,22 @@
+[Unit]
+Description=Phiocker Container Daemon
+Documentation=https://github.com/philopaterwaheed/phiocker
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/phiocker daemon
+Restart=on-failure
+RestartSec=5s
+
+# Runtime directories
+RuntimeDirectory=phiocker
+StateDirectory=phiocker
+
+# Security hardening
+ProtectSystem=full
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
