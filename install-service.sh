@@ -21,7 +21,7 @@ cmd_install() {
 
     echo "==> Building phiocker..."
     pushd "${SCRIPT_DIR}" >/dev/null
-    go build -o "${BINARY_DST}" ./cmd/phiocker
+    go build -buildvcs=false -o  "${BINARY_DST}" ./cmd/phiocker 
     popd >/dev/null
     chmod +x "${BINARY_DST}"
     echo "    Binary installed at ${BINARY_DST}"
