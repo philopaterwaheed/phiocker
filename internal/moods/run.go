@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/creack/pty"
+	"github.com/philopaterwaheed/phiocker/internal/network"
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
@@ -23,6 +24,7 @@ type ContainerProcess struct {
 	CgPath    string
 	StdinPipe io.WriteCloser
 	PTYMaster *os.File // PTY master fd
+	NetInfo   *network.ContainerNetInfo
 }
 
 func (cp *ContainerProcess) PID() int {
@@ -31,11 +33,13 @@ func (cp *ContainerProcess) PID() int {
 
 func (cp *ContainerProcess) Wait() error {
 	err := cp.Cmd.Wait()
+	network.TeardownContainerNetwork(cp.NetInfo)
 	deleteCgroup(cp.CgPath)
 	return err
 }
 
 func (cp *ContainerProcess) Stop() error {
+	network.TeardownContainerNetwork(cp.NetInfo)
 	if cp.PTYMaster != nil {
 		cp.PTYMaster.Close()
 	}
@@ -55,11 +59,15 @@ func RunDetached(args []string, basePath string) (*ContainerProcess, error) {
 	containerName := args[0]
 
 	configPath := filepath.Join(basePath, "containers", containerName, "config.json")
+	rootfsPath := filepath.Join(basePath, "containers", containerName, "rootfs")
 	var limits Limits
 	if configFile, err := utils.OpenFile(configPath); err == nil {
 		config := LoadConfig(configFile)
 		limits = config.Limits
 		configFile.Close()
+	}
+	if err := repairContainerFilesystem(rootfsPath); err != nil {
+		return nil, fmt.Errorf("failed to repair container filesystem: %v", err)
 	}
 
 	cgPath, cgFile := setupCgroup(limits)
@@ -85,7 +93,8 @@ func RunDetached(args []string, basePath string) (*ContainerProcess, error) {
 		Ctty:    0, // child fd 0 (stdin) = PTY slave
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWNS,
+			syscall.CLONE_NEWNS |
+			syscall.CLONE_NEWNET,
 		UseCgroupFD: true,
 		CgroupFD:    int(cgFile.Fd()),
 	}
@@ -102,10 +111,16 @@ func RunDetached(args []string, basePath string) (*ContainerProcess, error) {
 	// Set a sensible default terminal size
 	utils.SetPTYWinSize(ptmx, 24, 80)
 
+	netInfo, err := network.SetupContainerNetwork(cmd.Process.Pid, rootfsPath)
+	if err != nil {
+		fmt.Printf("warning: failed to set up networking: %v\n", err)
+	}
+
 	return &ContainerProcess{
 		Cmd:       cmd,
 		CgPath:    cgPath,
 		PTYMaster: ptmx,
+		NetInfo:   netInfo,
 	}, nil
 }
 

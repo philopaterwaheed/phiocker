@@ -10,6 +10,26 @@ import (
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
+func repairContainerFilesystem(rootfs string) error {
+	for _, dir := range []string{"tmp", "var/tmp"} {
+		path := filepath.Join(rootfs, dir)
+		info, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if !info.IsDir() {
+			continue
+		}
+		if err := os.Chmod(path, os.ModePerm|os.ModeSticky); err != nil {
+			return fmt.Errorf("failed to set mode on %s: %v", path, err)
+		}
+	}
+	return nil
+}
+
 func Create(generatorFilePath, basePath string) error {
 	file, err := utils.OpenFile(generatorFilePath)
 	if err != nil {
@@ -58,6 +78,10 @@ func Create(generatorFilePath, basePath string) error {
 
 	if err := utils.CopyDirectory(imagePath, containerPath); err != nil {
 		return fmt.Errorf("failed to copy image to container: %v", err)
+	}
+
+	if err := repairContainerFilesystem(containerPath); err != nil {
+		return fmt.Errorf("failed to repair container filesystem: %v", err)
 	}
 
 	if len(config.Copy) > 0 {

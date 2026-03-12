@@ -11,6 +11,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
+func ensureDirMode(path string, mode os.FileMode) error {
+	if err := os.MkdirAll(path, mode.Perm()); err != nil {
+		return err
+	}
+	return os.Chmod(path, mode)
+}
+
 func PullAndExtractImage(imageRef string, outputDir string) error {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
@@ -40,16 +47,17 @@ func PullAndExtractImage(imageRef string, outputDir string) error {
 				return err
 			}
 			target := filepath.Join(outputDir, hdr.Name)
+			mode := hdr.FileInfo().Mode()
 			switch hdr.Typeflag {
 			case tar.TypeDir:
-				if err := os.MkdirAll(target, 0755); err != nil {
+				if err := ensureDirMode(target, mode); err != nil {
 					return err
 				}
 			case tar.TypeReg:
 				if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 					return err
 				}
-				f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY, os.FileMode(hdr.Mode))
+				f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
 				if err != nil {
 					return err
 				}
@@ -57,7 +65,12 @@ func PullAndExtractImage(imageRef string, outputDir string) error {
 					f.Close()
 					return err
 				}
-				f.Close()
+				if err := f.Close(); err != nil {
+					return err
+				}
+				if err := os.Chmod(target, mode); err != nil {
+					return err
+				}
 			case tar.TypeSymlink:
 				if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 					return err

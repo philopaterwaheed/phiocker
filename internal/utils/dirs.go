@@ -5,6 +5,13 @@ import (
 	"path/filepath"
 )
 
+func ensureDirMode(path string, mode os.FileMode) error {
+	if err := os.MkdirAll(path, mode.Perm()); err != nil {
+		return err
+	}
+	return os.Chmod(path, mode)
+}
+
 func IsDirectoryEmpty(path string) (bool, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -27,7 +34,7 @@ func CopyDirectory(src, dst string) error {
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
+			return ensureDirMode(dstPath, info.Mode())
 		} else if info.Mode()&os.ModeSymlink != 0 {
 			// Handle symlinks
 			linkTarget, err := os.Readlink(path)
