@@ -22,6 +22,7 @@ const (
 
 type RunningContainer struct {
 	Name    string
+	Image   string
 	PID     int
 	Started time.Time
 	Process *moods.ContainerProcess
@@ -154,8 +155,10 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			return Response{Status: "error", Message: err.Error()}
 		}
 
+		image := moods.ReadContainerImage(BasePath, name)
 		rc := &RunningContainer{
 			Name:    name,
+			Image:   image,
 			PID:     cp.PID(),
 			Started: time.Now(),
 			Process: cp,
@@ -182,10 +185,10 @@ func (d *Daemon) executeCommand(cmd Command) Response {
 			return Response{Status: "success", Output: "No running containers.\n"}
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("%-20s %-10s %-20s\n", "NAME", "PID", "UPTIME"))
+		sb.WriteString(fmt.Sprintf("%-20s %-25s %-10s %-20s\n", "NAME", "IMAGE", "PID", "UPTIME"))
 		for _, rc := range d.containers {
 			uptime := time.Since(rc.Started).Truncate(time.Second)
-			sb.WriteString(fmt.Sprintf("%-20s %-10d %-20s\n", rc.Name, rc.PID, uptime))
+			sb.WriteString(fmt.Sprintf("%-20s %-25s %-10d %-20s\n", rc.Name, rc.Image, rc.PID, uptime))
 		}
 		return Response{Status: "success", Output: sb.String()}
 

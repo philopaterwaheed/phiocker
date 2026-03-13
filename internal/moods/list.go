@@ -8,6 +8,19 @@ import (
 	"github.com/philopaterwaheed/phiocker/internal/utils"
 )
 
+func ReadContainerImage(basePath, name string) string {
+	f, err := os.Open(filepath.Join(basePath, "containers", name, "config.json"))
+	if err != nil {
+		return "unknown"
+	}
+	defer f.Close()
+	cfg := LoadConfig(f)
+	if cfg.Baseimage == "" {
+		return "unknown"
+	}
+	return cfg.Baseimage
+}
+
 func ListContainers(basePath string) error {
 	containersPath := filepath.Join(basePath, "containers")
 
@@ -41,7 +54,8 @@ func ListContainers(basePath string) error {
 					sizeStr = fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
 				}
 			}
-			fmt.Printf("  - %s (%s)\n", entry.Name(), sizeStr)
+			image := ReadContainerImage(basePath, entry.Name())
+			fmt.Printf("  - %s (image: %s, %s)\n", entry.Name(), image, sizeStr)
 		}
 	}
 	return nil
